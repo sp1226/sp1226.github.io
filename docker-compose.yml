@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # 기존 서비스
+  db:
+    image: postgres:13
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=sp
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=sp
+    networks:
+      - eco_construction_network
+
+  web:
+    build: ./backend
+    image: us-central1-docker.pkg.dev/my-docker-project-435905/my-repo/0914-web:latest
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - eco_construction_network
+    environment:
+      - DATABASE_URL=postgres://sp:1234@db:5432/sp
+
+  frontend:
+    build: ./frontend
+    image: us-central1-docker.pkg.dev/my-docker-project-435905/my-repo/0914-frontend:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    stdin_open: true
+    tty: true
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_API_URL=http://web:8000
+    networks:
+      - eco_construction_network
+
+  # 새로운 서비스
+  erp_backend:
+    build: ./erp-system/backend
+    image: us-central1-docker.pkg.dev/my-docker-project-435905/my-repo/erp-backend:latest
+    command: python manage.py runserver 0.0.0.0:8001
+    volumes:
+      - ./erp-system/backend:/code
+    ports:
+      - "8001:8001"
+    depends_on:
+      - db
+    networks:
+      - eco_construction_network
+    environment:
+      - DATABASE_URL=postgres://sp:1234@db:5432/sp_erp
+
+  erp_frontend:
+    build: ./erp-system/frontend
+    image: us-central1-docker.pkg.dev/my-docker-project-435905/my-repo/erp-frontend:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./erp-system/frontend:/app
+    stdin_open: true
+    tty: true
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_API_URL=http://erp_backend:8001
+    networks:
+      - eco_construction_network
+
+  safety_management:
+    build: ./safety-management
+    image: us-central1-docker.pkg.dev/my-docker-project-435905/my-repo/safety-management:latest
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./safety-management:/app
+    depends_on:
+      - db
+    networks:
+      - eco_construction_network
+    environment:
+      - DATABASE_URL=postgres://sp:1234@db:5432/sp_safety
+
+  waste_management:
+    build: ./waste-management
+    image: us-central1-docker.pkg.dev/my-docker-project-435905/my-repo/waste-management:latest
+    ports:
+      - "8003:8000"
+    volumes:
+      - ./waste-management:/app
+    depends_on:
+      - db
+    networks:
+      - eco_construction_network
+    environment:
+      - DATABASE_URL=postgres://sp:1234@db:5432/sp_waste
+
+networks:
+  eco_construction_network:
+    driver: bridge
+
+volumes:
+  db_data:
